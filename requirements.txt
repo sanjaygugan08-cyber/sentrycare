@@ -1,0 +1,5 @@
+# The tools this app needs. Install with:  pip install -r requirements.txt
+# Exact versions, so a new release on demo day can't break the app.
+sarvamai==0.1.37      # Sarvam's official Python library (speech, translation, voice, chat)
+streamlit==1.66.0     # turns a Python script into a web page with buttons
+pytest==8.4.2         # runs the checks in tests/ (optional)

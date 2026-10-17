@@ -1,0 +1,18 @@
+# Things git should never upload
+
+# The project's own toolbox (very large, rebuilt with pip install)
+.venv/
+venv/
+
+# Python's temporary files
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Anywhere an API key might be saved: never commit these
+.env
+.streamlit/secrets.toml
+
+# Computer clutter
+.DS_Store
+Thumbs.db

@@ -1,0 +1,27 @@
+{
+  "ward": "Ward 3B (General Medicine)",
+  "shift": "Night shift, 16 Oct 2026, 20:00 to 08:00",
+  "keyterms": [
+    "Venkat Rao", "Sunita Devi", "Fatima Begum", "Joseph D'Souza",
+    "Ramesh Kumar", "Arjun Mehta", "Meena Iyer", "Kavita Sharma",
+    "Furosemide", "Insulin", "Paracetamol", "Enoxaparin", "SpO2", "BP",
+    "duty doctor", "RMO"
+  ],
+  "alerts": [
+    {"time": "2026-10-16T20:00", "bed": "7",  "patient": "Venkat Rao (78)",     "source": "Medicine cabinet", "type": "missed_dose",          "detail": "Furosemide 40 mg evening dose not taken"},
+    {"time": "2026-10-16T21:00", "bed": "9",  "patient": "Ramesh Kumar (66)",   "source": "Medicine cabinet", "type": "missed_critical_dose", "detail": "Insulin 21:00 dose not given"},
+    {"time": "2026-10-16T21:10", "bed": "12", "patient": "Arjun Mehta (58)",    "source": "Call bell",        "type": "call_bell",            "detail": ""},
+    {"time": "2026-10-16T22:30", "bed": "7",  "patient": "Venkat Rao (78)",     "source": "Vitals monitor",   "type": "vitals_drift",         "detail": "oxygen level went from 96% to 93% over 4 hours"},
+    {"time": "2026-10-16T22:40", "bed": "12", "patient": "Arjun Mehta (58)",    "source": "Call bell",        "type": "call_bell",            "detail": ""},
+    {"time": "2026-10-16T23:15", "bed": "10", "patient": "Joseph D'Souza (71)", "source": "Vitals monitor",   "type": "hr_abnormal",          "detail": "heart rate 112 per minute"},
+    {"time": "2026-10-16T23:15", "bed": "10", "patient": "Joseph D'Souza (71)", "source": "Vitals monitor",   "type": "fever",                "detail": "temperature 38.6 °C"},
+    {"time": "2026-10-16T23:50", "bed": "1",  "patient": "Kavita Sharma (61)",  "source": "Call bell",        "type": "call_bell",            "detail": ""},
+    {"time": "2026-10-17T00:15", "bed": "12", "patient": "Arjun Mehta (58)",    "source": "Call bell",        "type": "call_bell",            "detail": ""},
+    {"time": "2026-10-17T00:40", "bed": "3",  "patient": "Meena Iyer (74)",     "source": "Vitals monitor",   "type": "bp_abnormal",          "detail": "blood pressure 168 over 98"},
+    {"time": "2026-10-17T01:10", "bed": "7",  "patient": "Venkat Rao (78)",     "source": "Bed sensor",       "type": "bed_exit",             "detail": "left bed, back after 6 minutes"},
+    {"time": "2026-10-17T01:30", "bed": "2",  "patient": "Sunita Devi (82)",    "source": "Bed sensor",       "type": "fall_detected",        "detail": "floor-impact sensor triggered next to bed"},
+    {"time": "2026-10-17T01:31", "bed": "2",  "patient": "Sunita Devi (82)",    "source": "Call bell",        "type": "call_bell",            "detail": ""},
+    {"time": "2026-10-17T02:05", "bed": "5",  "patient": "Fatima Begum (69)",   "source": "Vitals monitor",   "type": "spo2_low",             "detail": "oxygen level 89%"},
+    {"time": "2026-10-17T02:20", "bed": "12", "patient": "Arjun Mehta (58)",    "source": "Call bell",        "type": "call_bell",            "detail": ""}
+  ]
+}

@@ -1,19 +1,23 @@
 # SentryCare Lite: 2-hour demo with Sarvam
 
-One ranked list of patients instead of four separate alarm systems. You can
-speak an update in any Indian language, and the app reads alerts and the
-shift handoff aloud in the nurse's own language.
+One ranked list of patients instead of four separate alarm systems. Nurses can
+speak an update in any Indian language, and the app reads alerts and the shift
+handoff aloud in **Tamil, Telugu or Bengali** (Tamil by default).
 
 **This demo uses made-up patients only. Never put real patient data in it.**
 
 ## Run it
 
 ```bash
+git clone https://github.com/sanjaygugan08-cyber/sentrycare
+cd sentrycare
 python -m venv .venv
 # Windows:  .venv\Scripts\activate      Mac:  source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+(On a Mac, type `python3` instead of `python`.)
 
 A browser tab opens. The priority queue works straight away. Paste your
 Sarvam API key (from https://dashboard.sarvam.ai) into the sidebar to turn on
@@ -22,6 +26,9 @@ voice, translation and the handoff brief.
 To avoid pasting the key every time, save it before running the app (optional):
 - Windows (PowerShell): `$env:SARVAM_API_KEY="your-key"`
 - Mac: `export SARVAM_API_KEY="your-key"`
+
+Never commit the key. The `.gitignore` file already keeps `.env` and
+`.streamlit/secrets.toml` out of git.
 
 ## What each file does
 
@@ -33,11 +40,13 @@ To avoid pasting the key every time, save it before running the app (optional):
 | `handoff.py` | Gathers facts and instructions for the AI handoff brief | The handoff checklist |
 | `sample_alerts.json` | Made-up alarms for one night shift | Tonight's alarm log |
 | `tests/` | Automatic checks for the rulebook (`pytest`) | Quality control |
+| `.github/workflows/tests.yml` | Runs those checks on GitHub after every push | A second pair of eyes |
 
 ## Make it yours
 
 - **Change the ward:** edit `sample_alerts.json` (beds, times, alert types).
 - **Change how urgent things are:** edit the points in `ALERT_RULES` at the top of `scoring.py`.
+- **Change the languages:** edit `DEMO_LANGUAGES` near the top of `app.py` (copy exact names from `LANGUAGES` in `sarvam_service.py`).
 - **Help it hear names and medicine words:** add them to `keyterms` in `sample_alerts.json`.
 
 ## Credits
