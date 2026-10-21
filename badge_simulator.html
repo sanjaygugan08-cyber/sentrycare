@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentryCare Badge</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #ffffff; --ink: #1d2433; --quiet: #5b6475; --accent: #c0392b; --line: #dde1e7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171c; --card: #1d2129; --ink: #eef1f5; --quiet: #a3abb8; --line: #2c323c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink);
+         display: flex; justify-content: center; padding: 24px 16px; }
+  main { width: 100%; max-width: 420px; display: grid; gap: 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  p { margin: 0; color: var(--quiet); line-height: 1.45; }
+  .row { display: flex; gap: 8px; }
+  select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 15px; }
+  #talk { width: 220px; height: 220px; margin: 8px auto; border-radius: 50%; border: none; font-size: 18px; font-weight: 600;
+          color: #fff; background: var(--accent); cursor: pointer; touch-action: none; user-select: none;
+          box-shadow: 0 0 0 0 rgba(192, 57, 43, .5); transition: transform .1s; }
+  #talk.recording { transform: scale(.94); box-shadow: 0 0 0 18px rgba(192, 57, 43, .18); }
+  #talk:disabled { background: #8a8f99; cursor: wait; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--quiet); }
+  #status { text-align: center; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📟 SentryCare badge</h1>
+  <p>Hold the button, speak (e.g. "Bed 7 seen, called the duty doctor" or "Who's next?"), then let go.</p>
+  <div class="row">
+    <select id="lang" aria-label="Reply language">
+      <option value="te-IN" selected>తెలుగు · Telugu</option>
+    </select>
+    <select id="badge" aria-label="Badge name">
+      <option value="badge-1">Nurse badge 1</option>
+      <option value="badge-2">Nurse badge 2</option>
+      <option value="doctor-badge">Doctor badge</option>
+    </select>
+  </div>
+  <button id="talk" type="button">Hold to talk</button>
+  <p id="status">Ready</p>
+  <div class="card"><span class="label">Heard</span><span id="heard">—</span><span id="heardEn" style="color:var(--quiet)"></span></div>
+  <div class="card"><span class="label">Badge replied</span><span id="reply">—</span></div>
+</main>
+<script>
+  const talk = document.getElementById("talk");
+  const statusLine = document.getElementById("status");
+  let recorder = null, chunks = [], stream = null;
+
+  async function startRecording() {
+    if (recorder) return;
+    try {
+      stream = stream || await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      statusLine.textContent = "Microphone blocked. Allow it in the browser (padlock icon), or open this page on the laptop at localhost.";
+      return;
+    }
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = send;
+    recorder.start();
+    talk.classList.add("recording");
+    statusLine.textContent = "Listening… let go when you're done";
+  }
+
+  function stopRecording() {
+    if (!recorder) return;
+    talk.classList.remove("recording");
+    recorder.stop();
+  }
+
+  async function send() {
+    const type = recorder.mimeType || "audio/webm";
+    recorder = null;
+    const blob = new Blob(chunks, { type });
+    talk.disabled = true;
+    statusLine.textContent = "Thinking…";
+    const params = new URLSearchParams({
+      badge: document.getElementById("badge").value,
+      lang: document.getElementById("lang").value,
+      sample_rate: "16000",
+      format: "json",
+    });
+    try {
+      const res = await fetch(`/badge/talk?${params}`, { method: "POST", headers: { "Content-Type": type }, body: blob });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      document.getElementById("heard").textContent = data.heard;
+      document.getElementById("heardEn").textContent = data.heard_english !== data.heard ? data.heard_english : "";
+      document.getElementById("reply").textContent = data.reply;
+      statusLine.textContent = "Ready";
+      new Audio(`data:audio/wav;base64,${data.audio}`).play();
+    } catch (err) {
+      statusLine.textContent = `Problem: ${err.message}`;
+    } finally {
+      talk.disabled = false;
+    }
+  }
+
+  talk.addEventListener("pointerdown", (e) => { e.preventDefault(); startRecording(); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => talk.addEventListener(ev, stopRecording));
+  // Spacebar works as the button on a laptop.
+  document.addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); startRecording(); } });
+  document.addEventListener("keyup", (e) => { if (e.code === "Space") stopRecording(); });
+</script>
+</body>
+</html>

@@ -8,33 +8,36 @@ Three tabs:
     1. Priority queue  - who to see first, and why (rules, no AI)
     2. Voice update    - speak a note in any Indian language (Sarvam Saaras)
     3. Shift handoff   - AI-drafted brief, translated and read aloud (Sarvam)
+
+Actions and notes live in the shared logbook (store.py), so anything a nurse
+says into a clip-on badge (badge_server.py) appears here within a few seconds.
 """
 
 from __future__ import annotations
 
 import os
-from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 
+import store
 from handoff import HANDOFF_INSTRUCTIONS, build_handoff_facts, latest_status
 from sarvam_service import LANGUAGES, VOICES, SarvamError, SarvamService
 from scoring import PatientPriority, Ward, load_ward, rank_patients, spoken_summary
 
 DATA_FILE = Path(__file__).parent / "sample_alerts.json"
 BAND_COLOURS = {"Act now": "red", "Check soon": "orange", "Routine": "gray"}
-ACTIONS = ("Acknowledged", "Resolved", "Escalated")
+ACTIONS = store.ACTIONS
+LIVE_REFRESH_SECONDS = 3  # how often the screen checks the logbook for badge updates
 
 # The team's demo languages. Sarvam supports 11 (see LANGUAGES in sarvam_service.py);
 # to offer another one, copy its exact name from there into this list.
-DEMO_LANGUAGES = ["தமிழ் · Tamil", "తెలుగు · Telugu", "বাংলা · Bengali"]
+DEMO_LANGUAGES = ["తెలుగు · Telugu"]
 
 st.set_page_config(page_title="SentryCare Lite", page_icon="🩺", layout="wide")
 
-# Memory for this browser tab (cleared if the page is refreshed).
-st.session_state.setdefault("actions", [])  # [{time, bed, action}]
-st.session_state.setdefault("notes", [])  # [{time, bed, said, english}]
+# Memory for this browser tab only. Actions and notes are NOT kept here: they
+# live in the shared logbook (store.py) so the badges and the screen agree.
 st.session_state.setdefault("pending_note", None)
 st.session_state.setdefault("brief", None)  # {"text": ..., "facts": facts it was written from}
 st.session_state.setdefault("explanations", {})  # bed -> {"language", "voice", "text", "clips"}
@@ -70,10 +73,6 @@ def play(clips: list[bytes]) -> None:
         st.audio(clip, format="audio/wav" if clip[:4] == b"RIFF" else "audio/mpeg")
 
 
-def now() -> str:
-    return datetime.now().strftime("%H:%M")
-
-
 # ---------------------------------------------------------------------------
 # Sidebar: key, language, voice
 # ---------------------------------------------------------------------------
@@ -92,6 +91,16 @@ with st.sidebar:
     language_name = st.selectbox("Nurse's language", DEMO_LANGUAGES)
     language_code = LANGUAGES[language_name]
     voice = VOICES[st.radio("Voice", list(VOICES), horizontal=True)]
+    st.divider()
+    live_updates = st.toggle(
+        "Live badge updates",
+        value=True,
+        help=f"Checks every {LIVE_REFRESH_SECONDS} seconds for actions and notes spoken into a badge.",
+    )
+    if st.button("Reset demo", help="Clears all actions and voice notes for a fresh run."):
+        store.clear_shift()
+        st.session_state.brief = None
+        st.rerun()
     st.divider()
     st.caption("Demo with made-up patients only. Never type real patient details here.")
 
@@ -140,7 +149,19 @@ def show_saved_explanation(bed: str) -> None:
 # ---------------------------------------------------------------------------
 ward = get_ward(DATA_FILE, DATA_FILE.stat().st_mtime)
 ranked = rank_patients(ward.alerts)
-status = latest_status(st.session_state.actions)
+actions = store.list_actions()
+notes = store.list_notes()
+status = latest_status(actions)
+
+
+@st.fragment(run_every=LIVE_REFRESH_SECONDS if live_updates else None)
+def watch_logbook(seen: tuple[int, int]) -> None:
+    """Quietly re-check the logbook; redraw the page only when a badge added something."""
+    if (len(store.list_actions()), len(store.list_notes())) != seen:
+        st.rerun(scope="app")
+
+
+watch_logbook((len(actions), len(notes)))
 
 st.title("SentryCare Lite")
 st.caption(f"{ward.name} · {ward.shift} · {len(ward.alerts)} alarms from 4 systems → 1 list")
@@ -155,6 +176,13 @@ queue_tab, voice_tab, handoff_tab = st.tabs(["① Priority queue", "② Voice up
 # Tab 1: Priority queue (works without a key: the ranking is plain rules)
 # ---------------------------------------------------------------------------
 with queue_tab:
+    from_badges = [a for a in actions if a["source"] != "screen"][-3:]
+    from_badges += [n for n in notes if n["source"] != "screen"][-3:]
+    if from_badges:
+        with st.expander("📟 Latest from badges", expanded=True):
+            for item in sorted(from_badges, key=lambda x: x["time"], reverse=True):
+                what = item.get("action") or f'note: "{item["english"]}"'
+                st.markdown(f'**{item["time"]}** · {item["source"]} · Bed {item["bed"]} · {what}')
     for position, patient in enumerate(ranked, start=1):
         with st.container(border=True):
             info, buttons = st.columns([4, 1])
@@ -170,9 +198,7 @@ with queue_tab:
             with buttons:
                 for action in ACTIONS:
                     if st.button(action, key=f"{action}-{patient.bed}", width="stretch"):
-                        st.session_state.actions.append(
-                            {"time": now(), "bed": patient.bed, "action": action}
-                        )
+                        store.add_action(patient.bed, action, source="screen")
                         st.rerun()
             if st.button(f"🔊 Explain in {language_name}", key=f"explain-{patient.bed}"):
                 if not need_key():
@@ -211,16 +237,14 @@ with voice_tab:
             st.markdown("**English for the record:**")
             st.write(result.english)
             if st.button(f"Save to Bed {pending['bed']}"):
-                st.session_state.notes.append(
-                    {"time": now(), "bed": pending["bed"], "said": result.text, "english": result.english}
-                )
+                store.add_note(pending["bed"], result.text, result.english, source="screen")
                 st.session_state.pending_note = None
                 st.toast("Saved")
                 st.rerun()
 
     st.subheader("Notes this shift")
-    if st.session_state.notes:
-        st.dataframe(st.session_state.notes, hide_index=True)
+    if notes:
+        st.dataframe(notes, hide_index=True)
     else:
         st.caption("No voice notes yet.")
 
@@ -228,7 +252,7 @@ with voice_tab:
 # Tab 3: Shift handoff - AI drafts, nurse checks, then translate + read aloud
 # ---------------------------------------------------------------------------
 with handoff_tab:
-    facts = build_handoff_facts(ward, ranked, st.session_state.actions, st.session_state.notes)
+    facts = build_handoff_facts(ward, ranked, actions, notes)
     with st.expander("What the AI is given (nothing else)"):
         st.text(facts)
 
